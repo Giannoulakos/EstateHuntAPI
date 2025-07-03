@@ -1,0 +1,170 @@
+[
+  {
+    "id": "cust_001",
+    "name": "John Smith",
+    "email": "john.smith@email.com",
+    "phone": "+1-555-0101",
+    "preferences": {
+      "property_type": "apartment",
+      "location": "downtown Manhattan",
+      "price_range": {
+        "min": 800000,
+        "max": 1200000
+      },
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "amenities": ["gym", "pool", "parking", "doorman"],
+      "description": "Looking for a modern 2-bedroom apartment in downtown Manhattan with luxury amenities. Work in finance, prefer high-rise buildings with city views."
+    },
+    "profile": "Young professional in finance seeking luxury downtown living",
+    "created_at": "2024-01-15T10:30:00Z",
+    "updated_at": "2024-01-15T10:30:00Z"
+  },
+  {
+    "id": "cust_002",
+    "name": "Sarah Johnson",
+    "email": "sarah.johnson@email.com",
+    "phone": "+1-555-0102",
+    "preferences": {
+      "property_type": "house",
+      "location": "Brooklyn suburbs",
+      "price_range": {
+        "min": 600000,
+        "max": 900000
+      },
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "amenities": ["garden", "garage", "quiet neighborhood"],
+      "description": "Family with two children looking for a house in Brooklyn suburbs. Need good schools nearby and a safe neighborhood with outdoor space."
+    },
+    "profile": "Family with children seeking suburban home with good schools",
+    "created_at": "2024-01-16T14:20:00Z",
+    "updated_at": "2024-01-16T14:20:00Z"
+  },
+  {
+    "id": "cust_003",
+    "name": "Michael Chen",
+    "email": "michael.chen@email.com",
+    "phone": "+1-555-0103",
+    "preferences": {
+      "property_type": "condo",
+      "location": "Upper East Side",
+      "price_range": {
+        "min": 1000000,
+        "max": 1800000
+      },
+      "bedrooms": 3,
+      "bathrooms": 3,
+      "amenities": ["concierge", "rooftop", "pet-friendly"],
+      "description": "Tech entrepreneur looking for a luxury condo on Upper East Side. Needs home office space and pet-friendly building for two dogs."
+    },
+    "profile": "Tech entrepreneur seeking luxury pet-friendly condo with office space",
+    "created_at": "2024-01-17T09:15:00Z",
+    "updated_at": "2024-01-17T09:15:00Z"
+  },
+  {
+    "id": "cust_004",
+    "name": "Emily Davis",
+    "email": "emily.davis@email.com",
+    "phone": "+1-555-0104",
+    "preferences": {
+      "property_type": "studio",
+      "location": "Lower East Side",
+      "price_range": {
+        "min": 400000,
+        "max": 600000
+      },
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "amenities": ["laundry", "near subway"],
+      "description": "Graduate student looking for affordable studio apartment near universities. Needs good public transportation and laundry facilities."
+    },
+    "profile": "Graduate student seeking affordable studio with good transit access",
+    "created_at": "2024-01-18T16:45:00Z",
+    "updated_at": "2024-01-18T16:45:00Z"
+  },
+  {
+    "id": "cust_005",
+    "name": "Robert Wilson",
+    "email": "robert.wilson@email.com",
+    "phone": "+1-555-0105",
+    "preferences": {
+      "property_type": "penthouse",
+      "location": "Tribeca",
+      "price_range": {
+        "min": 3000000,
+        "max": 5000000
+      },
+      "bedrooms": 4,
+      "bathrooms": 4,
+      "amenities": ["private elevator", "terrace", "wine cellar", "smart home"],
+      "description": "Successful lawyer seeking luxury penthouse in Tribeca. Wants private elevator, large terrace for entertaining, and smart home features."
+    },
+    "profile": "High-net-worth lawyer seeking ultra-luxury penthouse with premium amenities",
+    "created_at": "2024-01-19T11:30:00Z",
+    "updated_at": "2024-01-19T11:30:00Z"
+  },
+  {
+    "id": "cust_006",
+    "name": "Lisa Martinez",
+    "email": "lisa.martinez@email.com",
+    "phone": "+1-555-0106",
+    "preferences": {
+      "property_type": "townhouse",
+      "location": "West Village",
+      "price_range": {
+        "min": 1500000,
+        "max": 2500000
+      },
+      "bedrooms": 3,
+      "bathrooms": 3,
+      "amenities": ["historic charm", "private entrance", "outdoor space"],
+      "description": "Artist and gallery owner looking for historic townhouse in West Village. Values character, charm, and private outdoor space for studio work."
+    },
+    "profile": "Artist seeking historic townhouse with character and outdoor studio space",
+    "created_at": "2024-01-20T13:10:00Z",
+    "updated_at": "2024-01-20T13:10:00Z"
+  },
+  {
+    "id": "cust_007",
+    "name": "David Kim",
+    "email": "david.kim@email.com",
+    "phone": "+1-555-0107",
+    "preferences": {
+      "property_type": "apartment",
+      "location": "Midtown East",
+      "price_range": {
+        "min": 700000,
+        "max": 1100000
+      },
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "amenities": ["24/7 security", "fitness center", "business center"],
+      "description": "Investment banker working long hours needs apartment close to office in Midtown East. Requires security and building amenities for convenience."
+    },
+    "profile": "Investment banker seeking convenient Midtown apartment with security and amenities",
+    "created_at": "2024-01-21T08:20:00Z",
+    "updated_at": "2024-01-21T08:20:00Z"
+  },
+  {
+    "id": "cust_008",
+    "name": "Jennifer Brown",
+    "email": "jennifer.brown@email.com",
+    "phone": "+1-555-0108",
+    "preferences": {
+      "property_type": "loft",
+      "location": "SoHo",
+      "price_range": {
+        "min": 1200000,
+        "max": 2000000
+      },
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "amenities": ["high ceilings", "exposed brick", "large windows"],
+      "description": "Fashion designer seeking industrial loft in SoHo with high ceilings and natural light. Needs space that can double as design studio."
+    },
+    "profile": "Fashion designer seeking industrial SoHo loft with studio potential",
+    "created_at": "2024-01-22T15:40:00Z",
+    "updated_at": "2024-01-22T15:40:00Z"
+  }
+]
