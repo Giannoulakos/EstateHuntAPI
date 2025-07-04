@@ -17,6 +17,7 @@ app.add_middleware(
 
 class PropertyQuery(BaseModel):
     property_description: str
+    url: str
     k: Optional[int] = 3
 
 @app.get("/")
@@ -48,6 +49,7 @@ def find_customer_matches(query: PropertyQuery):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+
 @app.post("/test-match")
 def test_match():
     """Test endpoint with a sample property query"""
@@ -58,5 +60,10 @@ def test_match():
     Description: Modern high-rise building with luxury finishes and prime location.
     """
     
-    result = find_matching_customers_api(sample_query, k=3)
+    result = find_matching_customers_api(sample_query, url="/Users/giannisgiannoulakos/Documents/projects/RealEstateAgent/API/EstateAgentAPI/sample_customers.json", k=3)
     return result
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "PropertyMatch AI"}

@@ -1,12 +1,13 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.vectorstores import InMemoryVectorStore
+from qdrant_client import QdrantClient, models
 from langchain_groq import ChatGroq
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import HumanMessage, SystemMessage
 from langchain_core.documents import Document
 import os
-import json
+from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Any
+import json
+import pandas as pd
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -22,28 +23,109 @@ text_splitter = RecursiveCharacterTextSplitter(
 
 # Initialize Groq Chat model
 llm = ChatGroq(
-    model="llama-3.1-8b-instant",  # Updated to supported model
+    model="llama-3.1-8b-instant",
     groq_api_key=os.getenv("GROQ_API_KEY"),
     temperature=0.3,
     max_tokens=1000
 )
 
-# Create embeddings using HuggingFace (free alternative)
-embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2",
-    model_kwargs={'device': 'cpu'},
-    encode_kwargs={'normalize_embeddings': True}
-)
+# Create embeddings using SentenceTransformer
+encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device='cpu')
 
 class RealEstateRAGAgent:
     def __init__(self):
         self.llm = llm
-        self.embeddings = embeddings
-        self.vectorstore = None
+        self.encoder = encoder
+        self.qdrant_client = None
         self.customers_data = []
+        self.collection_name = "customers"
+    
+    def _init_qdrant(self):
+        """Initialize Qdrant client if not already initialized"""
+        if not self.qdrant_client:
+            self.qdrant_client = QdrantClient(
+                url=os.getenv("QDRANT_URL"),
+                api_key=os.getenv("QDRANT_API_KEY"),
+                timeout=60
+            )
+    
+    def load_customers_from_csv(self, csv_url: str):
+        """Load customers from CSV file with headers: Contact ID,First Name,Last Name,Email,Phone,Primary Address,Type"""
+        self._init_qdrant()
+        
+        # Read CSV into DataFrame
+        df = pd.read_csv(csv_url)
+        
+        # Convert DataFrame to list of dictionaries
+        self.customers_data = df.to_dict(orient='records')
+        
+        # Convert customers to documents for embedding
+        documents = []
+        for customer in self.customers_data:
+            customer_text = self._customer_to_text(customer)
+            
+            # Create Document object with metadata for CSV structure
+            doc = Document(
+                page_content=customer_text,
+                metadata={
+                    "customer_id": customer.get("Contact ID", ""),
+                    "customer_data": customer,
+                    "name": f"{customer.get('First Name', '')} {customer.get('Last Name', '')}".strip(),
+                    "email": customer.get("Email", ""),
+                    "phone": customer.get("Phone", ""),
+                    "address": customer.get("Primary Address", ""),
+                    "type": customer.get("Type", ""),
+                    # For CSV, these might be empty or need to be mapped from other columns
+                    "property_type": customer.get("property_type", ""),
+                    "location": customer.get("location", customer.get("Primary Address", "")),
+                    "min_price": customer.get("min_price", 0),
+                    "max_price": customer.get("max_price", 0),
+                    "bedrooms": customer.get("bedrooms", 0),
+                    "bathrooms": customer.get("bathrooms", 0)
+                }
+            )
+            documents.append(doc)
+        
+        # Delete collection if it exists
+        try:
+            self.qdrant_client.delete_collection(self.collection_name)
+        except:
+            pass
+        
+        # Create collection
+        self.qdrant_client.create_collection(
+            collection_name=self.collection_name,
+            vectors_config=models.VectorParams(
+                size=384,  # all-MiniLM-L6-v2 dimension
+                distance=models.Distance.COSINE
+            )
+        )
+        
+        # Upload points
+        points = []
+        for idx, doc in enumerate(documents):
+            vector = self.encoder.encode(doc.page_content).tolist()
+            point = models.PointStruct(
+                id=idx,
+                vector=vector,
+                payload={
+                    "page_content": doc.page_content,
+                    "metadata": doc.metadata
+                }
+            )
+            points.append(point)
+        
+        self.qdrant_client.upload_points(
+            collection_name=self.collection_name,
+            points=points
+        )
+        
+        print(f"Loaded {len(self.customers_data)} customers from CSV into Qdrant vector store")
     
     def load_customers_from_json(self, json_file_path: str):
         """Load customers from JSON file"""
+        self._init_qdrant()
+        
         with open(json_file_path, 'r') as file:
             self.customers_data = json.load(file)
         
@@ -52,12 +134,11 @@ class RealEstateRAGAgent:
         for customer in self.customers_data:
             customer_text = self._customer_to_text(customer)
             
-            # Create Document object with metadata
-            from langchain_core.documents import Document
+            # Create Document object with metadata for JSON structure
             doc = Document(
                 page_content=customer_text,
                 metadata={
-                    "customer_id": customer["id"],
+                    "customer_id": customer.get("id", ""),
                     "customer_data": customer,
                     "name": customer.get("name", ""),
                     "email": customer.get("email", ""),
@@ -72,53 +153,117 @@ class RealEstateRAGAgent:
             )
             documents.append(doc)
         
-        # Create InMemoryVectorStore and add documents
-        self.vectorstore = InMemoryVectorStore(embedding=self.embeddings)
-        self.vectorstore.add_documents(documents)
+        # Delete collection if it exists
+        try:
+            self.qdrant_client.delete_collection(self.collection_name)
+        except:
+            pass
         
-        print(f"Loaded {len(self.customers_data)} customers into vector store")
+        # Create collection
+        self.qdrant_client.create_collection(
+            collection_name=self.collection_name,
+            vectors_config=models.VectorParams(
+                size=384,  # all-MiniLM-L6-v2 dimension
+                distance=models.Distance.COSINE
+            )
+        )
+        
+        # Upload points
+        points = []
+        for idx, doc in enumerate(documents):
+            vector = self.encoder.encode(doc.page_content).tolist()
+            point = models.PointStruct(
+                id=idx,
+                vector=vector,
+                payload={
+                    "page_content": doc.page_content,
+                    "metadata": doc.metadata
+                }
+            )
+            points.append(point)
+        
+        self.qdrant_client.upload_points(
+            collection_name=self.collection_name,
+            points=points
+        )
+        
+        print(f"Loaded {len(self.customers_data)} customers from JSON into Qdrant vector store")
     
     def _customer_to_text(self, customer: dict) -> str:
-        """Convert customer data to searchable text"""
-        preferences = customer.get("preferences", {})
+        """Convert customer data to searchable text - handles both JSON and CSV formats"""
+        if "preferences" in customer:
+            # JSON format with nested preferences
+            preferences = customer.get("preferences", {})
+            text_parts = [
+                f"Customer: {customer.get('name', '')}",
+                f"Profile: {customer.get('profile', '')}",
+                f"Property Type: {preferences.get('property_type', '')}",
+                f"Location: {preferences.get('location', '')}",
+                f"Budget: ${preferences.get('price_range', {}).get('min', 0):,} to ${preferences.get('price_range', {}).get('max', 0):,}",
+                f"Bedrooms: {preferences.get('bedrooms', '')}",
+                f"Bathrooms: {preferences.get('bathrooms', '')}",
+                f"Amenities: {', '.join(preferences.get('amenities', []))}",
+                f"Description: {preferences.get('description', '')}"
+            ]
+        else:
+            # CSV format with flat structure
+            text_parts = [
+                f"Customer: {customer.get('First Name', '')} {customer.get('Last Name', '')}",
+                f"Contact ID: {customer.get('Contact ID', '')}",
+                f"Email: {customer.get('Email', '')}",
+                f"Phone: {customer.get('Phone', '')}",
+                f"Address: {customer.get('Primary Address', '')}",
+                f"Type: {customer.get('Type', '')}",
+                f"Profile: {customer.get('profile', '')}",
+                f"Property Type: {customer.get('property_type', '')}",
+                f"Location: {customer.get('location', '')}",
+                f"Budget: {customer.get('budget', '')}",
+                f"Bedrooms: {customer.get('bedrooms', '')}",
+                f"Bathrooms: {customer.get('bathrooms', '')}",
+                f"Amenities: {customer.get('amenities', '')}",
+                f"Description: {customer.get('description', '')}"
+            ]
         
-        text_parts = [
-            f"Customer: {customer.get('name', '')}",
-            f"Profile: {customer.get('profile', '')}",
-            f"Property Type: {preferences.get('property_type', '')}",
-            f"Location: {preferences.get('location', '')}",
-            f"Budget: ${preferences.get('price_range', {}).get('min', 0):,} to ${preferences.get('price_range', {}).get('max', 0):,}",
-            f"Bedrooms: {preferences.get('bedrooms', '')}",
-            f"Bathrooms: {preferences.get('bathrooms', '')}",
-            f"Amenities: {', '.join(preferences.get('amenities', []))}",
-            f"Description: {preferences.get('description', '')}"
-        ]
-        
-        return " | ".join(text_parts)
+        return " | ".join(filter(None, text_parts))  # Filter out empty strings
     
     def find_matching_customers(self, property_query: str, k: int = 3) -> List[Dict]:
         """Find customers matching a property description"""
-        if not self.vectorstore:
-            raise ValueError("No customers loaded. Call load_customers_from_json() first.")
+        if not self.qdrant_client:
+            raise ValueError("No customers loaded. Call load_customers_from_json() or load_customers_from_csv() first.")
+        
+        # Encode the query
+        query_vector = self.encoder.encode(property_query).tolist()
         
         # Search for similar customers
-        docs = self.vectorstore.similarity_search_with_score(property_query, k=k)
+        search_result = self.qdrant_client.search(
+            collection_name=self.collection_name,
+            query_vector=query_vector,
+            limit=k
+        )
         
         matches = []
-        for doc, score in docs:
-            customer_data = doc.metadata["customer_data"]
+        for scored_point in search_result:
+            payload = scored_point.payload
+            customer_data = payload["metadata"]["customer_data"]
             matches.append({
                 "customer": customer_data,
-                "similarity_score": score,
-                "matching_text": doc.page_content
+                "similarity_score": scored_point.score,
+                "matching_text": payload["page_content"]
             })
         
         return matches
     
     def generate_personalized_pitch(self, property_description: str, customer_data: dict) -> str:
         """Generate a personalized sales pitch using Groq"""
-        customer_name = customer_data.get("name", "Customer")
-        preferences = customer_data.get("preferences", {})
+        # Handle both JSON and CSV formats
+        if "preferences" in customer_data:
+            # JSON format
+            customer_name = customer_data.get("name", "Customer")
+            preferences = customer_data.get("preferences", {})
+        else:
+            # CSV format
+            customer_name = f"{customer_data.get('First Name', '')} {customer_data.get('Last Name', '')}".strip()
+            preferences = {}
         
         system_prompt = """You are an expert real estate agent. Create a personalized, compelling sales pitch for a property to a specific customer. Make it professional, engaging, and tailored to their specific needs and preferences."""
         
@@ -131,6 +276,10 @@ class RealEstateRAGAgent:
         CUSTOMER:
         - Name: {customer_name}
         - Profile: {customer_data.get('profile', '')}
+        - Email: {customer_data.get('Email', customer_data.get('email', ''))}
+        - Phone: {customer_data.get('Phone', customer_data.get('phone', ''))}
+        - Address: {customer_data.get('Primary Address', '')}
+        - Type: {customer_data.get('Type', '')}
         - Budget: ${preferences.get('price_range', {}).get('min', 0):,} - ${preferences.get('price_range', {}).get('max', 0):,}
         - Preferred Type: {preferences.get('property_type', '')}
         - Preferred Location: {preferences.get('location', '')}
@@ -159,8 +308,15 @@ class RealEstateRAGAgent:
     
     def analyze_customer_match(self, property_description: str, customer_data: dict) -> str:
         """Analyze why a customer matches a property using Groq"""
-        customer_name = customer_data.get("name", "Customer")
-        preferences = customer_data.get("preferences", {})
+        # Handle both JSON and CSV formats
+        if "preferences" in customer_data:
+            # JSON format
+            customer_name = customer_data.get("name", "Customer")
+            preferences = customer_data.get("preferences", {})
+        else:
+            # CSV format
+            customer_name = f"{customer_data.get('First Name', '')} {customer_data.get('Last Name', '')}".strip()
+            preferences = {}
         
         system_prompt = """You are a real estate analyst. Analyze why a customer might be interested in a property and provide specific, actionable insights."""
         
@@ -173,6 +329,10 @@ class RealEstateRAGAgent:
         CUSTOMER:
         - Name: {customer_name}
         - Profile: {customer_data.get('profile', '')}
+        - Email: {customer_data.get('Email', customer_data.get('email', ''))}
+        - Phone: {customer_data.get('Phone', customer_data.get('phone', ''))}
+        - Address: {customer_data.get('Primary Address', '')}
+        - Type: {customer_data.get('Type', '')}
         - Budget: ${preferences.get('price_range', {}).get('min', 0):,} - ${preferences.get('price_range', {}).get('max', 0):,}
         - Preferred Type: {preferences.get('property_type', '')}
         - Preferred Location: {preferences.get('location', '')}
@@ -201,39 +361,42 @@ class RealEstateRAGAgent:
 # Initialize the RAG agent
 rag_agent = RealEstateRAGAgent()
 
-# Load sample customers (you need to create this file or use the existing one)
-try:
-    rag_agent.load_customers_from_json("/Users/giannisgiannoulakos/Documents/projects/RealEstateAgent/API/EstateAgentAPI/sample_customers.json")
-except FileNotFoundError:
-    print("json file not found. Please create it first.")
-
 # API Function for FastAPI integration
-def find_matching_customers_api(property_query: str, k: int = 3) -> Dict[str, Any]:
+def find_matching_customers_api(property_query: str, url: str = "sample_customers.csv", k: int = 3) -> Dict[str, Any]:
     """
     API function to find customers matching a property description.
     
     Args:
         property_query (str): Description of the property to match against
+        url (str): URL to CSV or JSON file with customer data
         k (int): Number of top matches to return (default: 3)
     
     Returns:
-        Dict containing:
-        - success (bool): Whether the operation was successful
-        - data (List): List of matching customers with analysis
-        - message (str): Status message
-        - total_matches (int): Number of matches found
+        Dict containing matching customers with analysis
     """
+    
+    # Load customers from the provided URL
     try:
-        # Check if RAG agent is initialized
-        if not rag_agent.vectorstore:
+        if url.endswith('.csv'):
+            rag_agent.load_customers_from_csv(url)
+        elif url.endswith('.json'):
+            rag_agent.load_customers_from_json(url)
+        else:
             return {
                 "success": False,
                 "data": [],
-                "message": "RAG agent not initialized. Customer database not loaded.",
+                "message": "Invalid file format. Only .csv and .json files are supported.",
                 "total_matches": 0
             }
-        
+    except Exception as e:
+        return {
+            "success": False,
+            "data": [],
+            "message": f"Error loading customer data: {str(e)}",
+            "total_matches": 0
+        }
 
+    try:
         # Find matches using vector search
         matches = rag_agent.find_matching_customers(property_query, k)
         
@@ -250,13 +413,27 @@ def find_matching_customers_api(property_query: str, k: int = 3) -> Dict[str, An
         for match in matches:
             customer = match["customer"]
             
+            # Handle both CSV and JSON formats for customer info
+            if "preferences" in customer:
+                # JSON format
+                customer_name = customer.get("name", "")
+                customer_email = customer.get("email", "")
+                customer_phone = customer.get("phone", "")
+                customer_id = customer.get("id", "")
+            else:
+                # CSV format
+                customer_name = f"{customer.get('First Name', '')} {customer.get('Last Name', '')}".strip()
+                customer_email = customer.get("Email", "")
+                customer_phone = customer.get("Phone", "")
+                customer_id = customer.get("Contact ID", "")
+            
             # Prepare basic customer info
             customer_info = {
-                "customer_id": customer.get("id"),
-                "customer_name": customer.get("name"),
-                "customer_email": customer.get("email"),
-                "customer_phone": customer.get("phone"),
-                "customer_profile": customer.get("profile"),
+                "customer_id": customer_id,
+                "customer_name": customer_name,
+                "customer_email": customer_email,
+                "customer_phone": customer_phone,
+                "customer_profile": customer.get("profile", ""),
                 "similarity_score": round(match["similarity_score"], 3),
                 "preferences": customer.get("preferences", {}),
                 "match_analysis": None,
@@ -296,49 +473,18 @@ def find_matching_customers_api(property_query: str, k: int = 3) -> Dict[str, An
             "total_matches": 0
         }
 
-# Legacy function for backward compatibility
-def find_matching_customers(property_query: str, k: int = 3):
-    """Find customers matching a property description (legacy function)"""
-    result = find_matching_customers_api(property_query, k)
-    return result.get("data", [])
-
 # Test the system
 if __name__ == "__main__":
-    
     property_query = """
-    historic townhouse in West Village
+    Downtown office space for lease, 2000 sq ft, modern amenities
     """
     
-    print("Searching for matching customers...")
+    print("Testing CSV format...")
+    result = find_matching_customers_api(property_query, "sample_customers.csv", k=3)
     
-    # Test basic vector search first
-    if rag_agent.vectorstore:
-        matches = rag_agent.find_matching_customers(property_query, k=3)
-        print(f"Found {len(matches)} matches")
-        
-        for i, match in enumerate(matches, 1):
-            customer = match["customer"]
-            print(f"\n--- Match {i} ---")
-            print(f"Customer: {customer.get('name')}")
-            print(f"Email: {customer.get('email')}")
-            print(f"Profile: {customer.get('profile')}")
-            print(f"Similarity Score: {match['similarity_score']:.3f}")
-            print(f"Matching Text: {match['matching_text'][:200]}...")
-            
-            # Only try Groq if GROQ_API_KEY is set
-            if os.getenv("GROQ_API_KEY"):
-                try:
-                    analysis = rag_agent.analyze_customer_match(property_query, customer)
-                    pitch = rag_agent.generate_personalized_pitch(property_query, customer)
-                    print(f"\nMatch Analysis:\n{analysis}")
-                    print(f"\nPersonalized Pitch:\n{pitch}")
-                except Exception as e:
-                    print(f"\nGroq analysis failed: {e}")
-                    print("But vector search is working!")
-            else:
-                print("\nGroq API key not set - skipping AI analysis")
-                print("Vector search is working correctly!")
-            
-            print("-" * 80)
+    if result["success"]:
+        print(f"Found {result['total_matches']} matches")
+        for customer in result["data"]:
+            print(f"- {customer['customer_name']} ({customer['similarity_score']})")
     else:
-        print("Vector store not initialized!")
+        print(f"Error: {result['message']}")

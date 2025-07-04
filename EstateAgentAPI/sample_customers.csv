@@ -1,0 +1,13 @@
+Contact ID,First Name,Last Name,Email,Phone,Primary Address,Type
+CID001,George,Smith,john.smith@email.com,555-0101,"123 Pine St, Downtown Seattle, WA 98101",Buyer
+CID002,Sarah,Johnson,sarah.j@email.com,555-0102,"456 Main Ave, Bellevue, WA 98004",Buyer
+CID003,Mike,Davis,mike.davis@email.com,555-0103,"789 Queen Anne Ave N, Seattle, WA 98109",Seller
+CID004,Emily,Wilson,emily.w@email.com,555-0104,"321 Broadway E, Capitol Hill, Seattle, WA 98102",Buyer
+CID005,David,Brown,david.brown@email.com,555-0105,"654 Dexter Ave N, South Lake Union, Seattle, WA 98109",Buyer
+CID006,Lisa,Anderson,lisa.anderson@email.com,555-0106,"987 Western Ave, Belltown, Seattle, WA 98121",Seller
+CID007,Robert,Chen,robert.chen@email.com,555-0107,"147 Lake Washington Blvd, Kirkland, WA 98033",Buyer
+CID008,Maria,Gonzalez,maria.gonzalez@email.com,555-0108,"258 California Ave SW, West Seattle, WA 98116",Seller
+CID009,Kevin,O'Brien,kevin.obrien@email.com,555-0109,"369 1st Ave S, Pioneer Square, Seattle, WA 98104",Buyer
+CID010,Jennifer,Park,jennifer.park@email.com,555-0110,"741 NE 8th St, Bellevue, WA 98004",Seller
+CID011,Michael,Torres,michael.torres@email.com,555-0111,"852 15th Ave E, Capitol Hill, Seattle, WA 98112",Buyer
+CID012,Amanda,Rodriguez,amanda.rodriguez@email.com,555-0112,"963 Terry Ave N, South Lake Union, Seattle, WA 98109",Buyer
