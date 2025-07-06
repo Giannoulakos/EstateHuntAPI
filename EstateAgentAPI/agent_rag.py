@@ -49,7 +49,7 @@ class RealEstateRAGAgent:
                 timeout=60
             )
     
-    def load_customers_from_csv(self, csv_url: str):
+    def load_customers_from_csv(self, csv_url: str, user_id: str):
         """Load customers from CSV file with headers: Contact ID,First Name,Last Name,Email,Phone,Primary Address,Type"""
         self._init_qdrant()
         
@@ -68,6 +68,7 @@ class RealEstateRAGAgent:
             doc = Document(
                 page_content=customer_text,
                 metadata={
+                    "user_id": user_id,
                     "customer_id": customer.get("Contact ID", ""),
                     "customer_data": customer,
                     "name": f"{customer.get('First Name', '')} {customer.get('Last Name', '')}".strip(),
@@ -122,7 +123,7 @@ class RealEstateRAGAgent:
         
         print(f"Loaded {len(self.customers_data)} customers from CSV into Qdrant vector store")
     
-    def load_customers_from_json(self, json_file_path: str):
+    def load_customers_from_json(self, json_file_path: str, user_id: str):
         """Load customers from JSON file"""
         self._init_qdrant()
         
@@ -138,6 +139,7 @@ class RealEstateRAGAgent:
             doc = Document(
                 page_content=customer_text,
                 metadata={
+                    "user_id": user_id,
                     "customer_id": customer.get("id", ""),
                     "customer_data": customer,
                     "name": customer.get("name", ""),
@@ -226,30 +228,35 @@ class RealEstateRAGAgent:
         
         return " | ".join(filter(None, text_parts))  # Filter out empty strings
     
-    def find_matching_customers(self, property_query: str, k: int = 3) -> List[Dict]:
-        """Find customers matching a property description"""
+    def find_matching_customers(self, property_query: str, user_id: str, k: int = 3) -> List[Dict]:
+        """Find customers matching a property description for a specific user"""
         if not self.qdrant_client:
             raise ValueError("No customers loaded. Call load_customers_from_json() or load_customers_from_csv() first.")
         
         # Encode the query
         query_vector = self.encoder.encode(property_query).tolist()
         
-        # Search for similar customers
+        # Search for similar customers (get more than k to account for filtering)
         search_result = self.qdrant_client.search(
             collection_name=self.collection_name,
             query_vector=query_vector,
-            limit=k
+            limit=k * 3  # Get more results to account for filtering
         )
         
         matches = []
         for scored_point in search_result:
             payload = scored_point.payload
-            customer_data = payload["metadata"]["customer_data"]
-            matches.append({
-                "customer": customer_data,
-                "similarity_score": scored_point.score,
-                "matching_text": payload["page_content"]
-            })
+            # Filter by user_id
+            if payload["metadata"].get("user_id") == user_id:
+                customer_data = payload["metadata"]["customer_data"]
+                matches.append({
+                    "customer": customer_data,
+                    "similarity_score": scored_point.score,
+                    "matching_text": payload["page_content"]
+                })
+                # Stop when we have enough matches
+                if len(matches) >= k:
+                    break
         
         return matches
     
@@ -362,12 +369,13 @@ class RealEstateRAGAgent:
 rag_agent = RealEstateRAGAgent()
 
 # API Function for FastAPI integration
-def find_matching_customers_api(property_query: str, url: str = "sample_customers.csv", k: int = 3) -> Dict[str, Any]:
+def find_matching_customers_api(property_query: str, user_id: str, url: str = "sample_customers.csv", k: int = 3) -> Dict[str, Any]:
     """
-    API function to find customers matching a property description.
+    API function to find customers matching a property description for a specific user.
     
     Args:
         property_query (str): Description of the property to match against
+        user_id (str): User ID to filter customers by
         url (str): URL to CSV or JSON file with customer data
         k (int): Number of top matches to return (default: 3)
     
@@ -378,9 +386,9 @@ def find_matching_customers_api(property_query: str, url: str = "sample_customer
     # Load customers from the provided URL
     try:
         if url.endswith('.csv'):
-            rag_agent.load_customers_from_csv(url)
+            rag_agent.load_customers_from_csv(url, user_id)
         elif url.endswith('.json'):
-            rag_agent.load_customers_from_json(url)
+            rag_agent.load_customers_from_json(url, user_id)
         else:
             return {
                 "success": False,
@@ -397,14 +405,14 @@ def find_matching_customers_api(property_query: str, url: str = "sample_customer
         }
 
     try:
-        # Find matches using vector search
-        matches = rag_agent.find_matching_customers(property_query, k)
+        # Find matches using vector search with user_id filtering
+        matches = rag_agent.find_matching_customers(property_query, user_id, k)
         
         if not matches:
             return {
                 "success": True,
                 "data": [],
-                "message": "No matching customers found for this property.",
+                "message": "No matching customers found for this property and user.",
                 "total_matches": 0
             }
         
@@ -480,7 +488,7 @@ if __name__ == "__main__":
     """
     
     print("Testing CSV format...")
-    result = find_matching_customers_api(property_query, "sample_customers.csv", k=3)
+    result = find_matching_customers_api(property_query, "test_user_1", "sample_customers.csv", k=3)
     
     if result["success"]:
         print(f"Found {result['total_matches']} matches")

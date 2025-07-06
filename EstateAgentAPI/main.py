@@ -17,6 +17,7 @@ app.add_middleware(
 
 class PropertyQuery(BaseModel):
     property_description: str
+    user_id: str
     url: str
     k: Optional[int] = 3
 
@@ -27,10 +28,10 @@ def read_root():
 @app.post("/find-matches")
 def find_customer_matches(query: PropertyQuery):
     """
-    Find customers who might be interested in a property.
+    Find customers who might be interested in a property for a specific user.
     
     Args:
-        query: PropertyQuery containing property description and number of matches
+        query: PropertyQuery containing property description, user_id, and number of matches
     
     Returns:
         JSON response with matching customers and AI analysis
@@ -38,6 +39,8 @@ def find_customer_matches(query: PropertyQuery):
     try:
         result = find_matching_customers_api(
             property_query=query.property_description,
+            user_id=query.user_id,
+            url=query.url,
             k=query.k
         )
         
@@ -60,7 +63,12 @@ def test_match():
     Description: Modern high-rise building with luxury finishes and prime location.
     """
     
-    result = find_matching_customers_api(sample_query, url="/Users/giannisgiannoulakos/Documents/projects/RealEstateAgent/API/EstateAgentAPI/sample_customers.json", k=3)
+    result = find_matching_customers_api(
+        property_query=sample_query, 
+        user_id="test_user_1",
+        url="sample_customers.json", 
+        k=3
+    )
     return result
 
 @app.get("/health")
