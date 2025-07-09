@@ -1,2 +1,4 @@
 .DS_Store
 EstateAgentAPI/.env
+EstateAgentAPI/__pycache__
+EstateAgentAPI/routers/__pycache__
