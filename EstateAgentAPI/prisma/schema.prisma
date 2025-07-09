@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  username  String   @unique
+  fullName  String?  @map("full_name")
+  password  String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  customers          Customer[]
+  searches           Search[]
+  CustomerDataSource CustomerDataSource[]
+  fileStorage        FileStorage[]
+
+  @@map("users")
+}
+
+model Customer {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId  String?  @map("customer_id")
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  type        String? // Buyer, Seller, etc.
+  profile     String?
+  preferences Json? // Store preferences as JSON
+  metadata    Json? // Additional metadata
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  userId String @map("user_id") @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([userId])
+  @@index([email])
+  @@index([customerId])
+  @@map("customers")
+}
+
+model Search {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  propertyDescription String   @map("property_description")
+  results             Json? // Store search results as JSON
+  matchCount          Int      @default(0) @map("match_count")
+  executionTime       Float?   @map("execution_time") // in milliseconds
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  // Relations
+  userId String @map("user_id") @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([userId])
+  @@index([createdAt])
+  @@map("searches")
+}
+
+model CustomerDataSource {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  fileId      String?   @map("file_id") @db.ObjectId // Reference to FileStorage
+  fileType    String    @map("file_type") // csv, json
+  recordCount Int       @default(0) @map("record_count")
+  isActive    Boolean   @default(true) @map("is_active")
+  lastSync    DateTime? @map("last_sync")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  userId String @map("user_id") @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([userId])
+  @@index([fileType])
+  @@index([fileId])
+  @@map("customer_data_sources")
+}
+
+model FileStorage {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  filename    String
+  originalName String  @map("original_name")
+  contentType String  @map("content_type")
+  fileSize    Int     @map("file_size")
+  content     String  // Base64 encoded file content
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  userId String @map("user_id") @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([userId])
+  @@index([filename])
+  @@map("file_storage")
+}

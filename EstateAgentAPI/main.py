@@ -1,13 +1,25 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import matches
+from contextlib import asynccontextmanager
+from routers import matches, uploads
+from database import init_database, close_database, check_database_health
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan events"""
+    # Startup
+    await init_database()
+    yield
+    # Shutdown
+    await close_database()
 
 app = FastAPI(
     title="PropertyMatch AI", 
     description="Real Estate Customer Matching API with AI-powered analysis",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Add CORS middleware
@@ -21,6 +33,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(matches.router)
+app.include_router(uploads.router)
 
 @app.get("/")
 def read_root():
@@ -33,6 +46,16 @@ def read_root():
         "endpoints": {
             "authentication": "/auth",
             "customer_matching": "/matches", 
+            "file_uploads": "/uploads",
             "system": "/system"
         }
+    }
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    db_health = await check_database_health()
+    return {
+        "status": "ok",
+        "database": db_health
     }
