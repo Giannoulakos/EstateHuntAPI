@@ -87,39 +87,59 @@ class RealEstateRAGAgent:
             )
             documents.append(doc)
         
-        # Delete collection if it exists
+        # Update collection if it exists, otherwise create new one
         try:
-            self.qdrant_client.delete_collection(self.collection_name)
+            # Try to get collection info to see if it exists
+            collection_info = self.qdrant_client.get_collection(self.collection_name)
+            # Get the current count to generate unique IDs
+            current_count = collection_info.points_count
+            
+            # If exists, add new points with unique IDs
+            points = []
+            for idx, doc in enumerate(documents):
+                vector = self.encoder.encode(doc.page_content).tolist()
+                point = models.PointStruct(
+                    id=current_count + idx,  # Use current count + index for unique IDs
+                    vector=vector,
+                    payload={
+                        "page_content": doc.page_content,
+                        "metadata": doc.metadata
+                    }
+                )
+                points.append(point)
+            
+            self.qdrant_client.upload_points(
+                collection_name=self.collection_name,
+                points=points
+            )
         except:
-            pass
-        
-        # Create collection
-        self.qdrant_client.create_collection(
-            collection_name=self.collection_name,
-            vectors_config=models.VectorParams(
-                size=384,  # all-MiniLM-L6-v2 dimension
-                distance=models.Distance.COSINE
+            # Collection doesn't exist, create new one
+            self.qdrant_client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=models.VectorParams(
+                    size=384,  # all-MiniLM-L6-v2 dimension
+                    distance=models.Distance.COSINE
+                )
             )
-        )
-        
-        # Upload points
-        points = []
-        for idx, doc in enumerate(documents):
-            vector = self.encoder.encode(doc.page_content).tolist()
-            point = models.PointStruct(
-                id=idx,
-                vector=vector,
-                payload={
-                    "page_content": doc.page_content,
-                    "metadata": doc.metadata
-                }
+            
+            # Upload points
+            points = []
+            for idx, doc in enumerate(documents):
+                vector = self.encoder.encode(doc.page_content).tolist()
+                point = models.PointStruct(
+                    id=idx,
+                    vector=vector,
+                    payload={
+                        "page_content": doc.page_content,
+                        "metadata": doc.metadata
+                    }
+                )
+                points.append(point)
+            
+            self.qdrant_client.upload_points(
+                collection_name=self.collection_name,
+                points=points
             )
-            points.append(point)
-        
-        self.qdrant_client.upload_points(
-            collection_name=self.collection_name,
-            points=points
-        )
         
         print(f"Loaded {len(self.customers_data)} customers from CSV into Qdrant vector store")
     
@@ -155,39 +175,59 @@ class RealEstateRAGAgent:
             )
             documents.append(doc)
         
-        # Delete collection if it exists
+        # Update collection if it exists, otherwise create new one
         try:
-            self.qdrant_client.delete_collection(self.collection_name)
+            # Try to get collection info to see if it exists
+            collection_info = self.qdrant_client.get_collection(self.collection_name)
+            # Get the current count to generate unique IDs
+            current_count = collection_info.points_count
+            
+            # If exists, add new points with unique IDs
+            points = []
+            for idx, doc in enumerate(documents):
+                vector = self.encoder.encode(doc.page_content).tolist()
+                point = models.PointStruct(
+                    id=current_count + idx,  # Use current count + index for unique IDs
+                    vector=vector,
+                    payload={
+                        "page_content": doc.page_content,
+                        "metadata": doc.metadata
+                    }
+                )
+                points.append(point)
+            
+            self.qdrant_client.upload_points(
+                collection_name=self.collection_name,
+                points=points
+            )
         except:
-            pass
-        
-        # Create collection
-        self.qdrant_client.create_collection(
-            collection_name=self.collection_name,
-            vectors_config=models.VectorParams(
-                size=384,  # all-MiniLM-L6-v2 dimension
-                distance=models.Distance.COSINE
+            # Collection doesn't exist, create new one
+            self.qdrant_client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=models.VectorParams(
+                    size=384,  # all-MiniLM-L6-v2 dimension
+                    distance=models.Distance.COSINE
+                )
             )
-        )
-        
-        # Upload points
-        points = []
-        for idx, doc in enumerate(documents):
-            vector = self.encoder.encode(doc.page_content).tolist()
-            point = models.PointStruct(
-                id=idx,
-                vector=vector,
-                payload={
-                    "page_content": doc.page_content,
-                    "metadata": doc.metadata
-                }
+            
+            # Upload points
+            points = []
+            for idx, doc in enumerate(documents):
+                vector = self.encoder.encode(doc.page_content).tolist()
+                point = models.PointStruct(
+                    id=idx,
+                    vector=vector,
+                    payload={
+                        "page_content": doc.page_content,
+                        "metadata": doc.metadata
+                    }
+                )
+                points.append(point)
+            
+            self.qdrant_client.upload_points(
+                collection_name=self.collection_name,
+                points=points
             )
-            points.append(point)
-        
-        self.qdrant_client.upload_points(
-            collection_name=self.collection_name,
-            points=points
-        )
         
         print(f"Loaded {len(self.customers_data)} customers from JSON into Qdrant vector store")
     
