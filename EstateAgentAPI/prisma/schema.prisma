@@ -10,68 +10,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  email     String   @unique
-  username  String   @unique
-  fullName  String?  @map("full_name")
-  password  String
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  customers          Customer[]
-  searches           Search[]
-  CustomerDataSource CustomerDataSource[]
-  fileStorage        FileStorage[]
-
-  @@map("users")
-}
-
-model Customer {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  customerId  String?  @map("customer_id")
-  name        String
-  email       String?
-  phone       String?
-  address     String?
-  type        String? // Buyer, Seller, etc.
-  profile     String?
-  preferences Json? // Store preferences as JSON
-  metadata    Json? // Additional metadata
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  userId String @map("user_id") @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Indexes
-  @@index([userId])
-  @@index([email])
-  @@index([customerId])
-  @@map("customers")
-}
-
-model Search {
-  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
-  propertyDescription String   @map("property_description")
-  results             Json? // Store search results as JSON
-  matchCount          Int      @default(0) @map("match_count")
-  executionTime       Float?   @map("execution_time") // in milliseconds
-  createdAt           DateTime @default(now()) @map("created_at")
-
-  // Relations
-  userId String @map("user_id") @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Indexes
-  @@index([userId])
-  @@index([createdAt])
-  @@map("searches")
-}
 
 model CustomerDataSource {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
@@ -87,7 +25,6 @@ model CustomerDataSource {
 
   // Relations
   userId String @map("user_id") @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Indexes
   @@index([userId])
@@ -107,7 +44,6 @@ model FileStorage {
 
   // Relations
   userId String @map("user_id") @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Indexes
   @@index([userId])
