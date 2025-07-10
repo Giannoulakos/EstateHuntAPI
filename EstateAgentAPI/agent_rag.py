@@ -121,6 +121,13 @@ class RealEstateRAGAgent:
                     distance=models.Distance.COSINE
                 )
             )
+
+            self.qdrant_client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="metadata.user_id",
+                field_schema=models.PayloadSchemaType.KEYWORD
+            )
+
             
             # Upload points
             points = []
@@ -210,6 +217,13 @@ class RealEstateRAGAgent:
                 )
             )
             
+            # Create index for user_id filtering
+            self.qdrant_client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="metadata.user_id",
+                field_schema=models.PayloadSchemaType.KEYWORD
+            )
+            
             # Upload points
             points = []
             for idx, doc in enumerate(documents):
@@ -276,29 +290,33 @@ class RealEstateRAGAgent:
         # Encode the query
         query_vector = self.encoder.encode(property_query).tolist()
         
-        # Search for similar customers (get more than k to account for filtering)
+        # Search for similar customers with user_id filter applied at query level
         search_result = self.qdrant_client.search(
             collection_name=self.collection_name,
             query_vector=query_vector,
-            limit=k * 3  # Get more results to account for filtering
+            query_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="metadata.user_id",
+                        match=models.MatchValue(value=user_id)
+                    )
+                ]
+            ),
+            limit=k  # Now we can use the exact k since filtering is done at query level
         )
         
         matches = []
         for scored_point in search_result:
             payload = scored_point.payload
-            # Filter by user_id
-            if payload["metadata"].get("user_id") == user_id:
-                customer_data = payload["metadata"]["customer_data"]
-                matches.append({
-                    "customer": customer_data,
-                    "similarity_score": scored_point.score,
-                    "matching_text": payload["page_content"]
-                })
-                # Stop when we have enough matches
-                if len(matches) >= k:
-                    break
+            customer_data = payload["metadata"]["customer_data"]
+            matches.append({
+                "customer": customer_data,
+                "similarity_score": scored_point.score,
+                "matching_text": payload["page_content"]
+            })
         
         return matches
+        
     
     def generate_personalized_pitch(self, property_description: str, customer_data: dict) -> str:
         """Generate a personalized sales pitch using Groq"""
